@@ -1,0 +1,105 @@
+// Prisma schema for ChurnPredict AI application
+// Link the provider and client,
+// load the db URL from the environment variables using 'env()'
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Table/Relation Creation
+// Integrates with Clerk authentication system
+model User {
+  // Table attributes and basic constraints:
+  id            String   @id @default(uuid())        // PK + unique user id
+  email         String   @unique                     // User email address
+  firstName     String?                              // User's first name (nullable)
+  lastName      String?                              // User's last name (nullable)
+  createdAt     DateTime @default(now())             // Account creation timestamp
+
+  // Relationships:
+  // Each user can have multiple customer data entries and prediction sessions
+  customerData      CustomerData[]      // User's customer data entries
+  predictionSessions PredictionSession[] // User's prediction sessions
+}
+
+// CustomerData Table/Relation Creation
+// Stores customer information used for churn prediction
+model CustomerData {
+  // Table attributes and basic constraints:
+  id               String   @id @default(uuid())     // PK + unique customer data id
+  userId           String                            // FK to User table
+
+  // Demographics - customer personal information
+  gender           String?                           // Customer gender (Male/Female)
+  seniorCitizen    String?                           // Senior citizen status (Yes/No)
+  partner          String?                           // Has partner (Yes/No)
+  dependents       String?                           // Has dependents (Yes/No)
+
+  // Account Information - customer account details
+  tenure           Int?                              // Months with company
+  contract         String?                           // Contract type (Month-to-month, One year, Two year)
+  paperlessBilling String?                           // Paperless billing preference (Yes/No)
+  paymentMethod    String?                           // Payment method used
+
+  // Services - customer service subscriptions
+  phoneService     String?                           // Has phone service (Yes/No)
+  multipleLines    String?                           // Multiple phone lines (Yes/No/No phone service)
+  internetService  String?                           // Internet service type (DSL/Fiber optic/No)
+  onlineSecurity   String?                           // Online security service (Yes/No/No internet service)
+  onlineBackup     String?                           // Online backup service (Yes/No/No internet service)
+  deviceProtection String?                           // Device protection service (Yes/No/No internet service)
+  techSupport      String?                           // Tech support service (Yes/No/No internet service)
+  streamingTV      String?                           // Streaming TV service (Yes/No/No internet service)
+  streamingMovies  String?                           // Streaming movies service (Yes/No/No internet service)
+
+  // Billing Information - customer financial data
+  monthlyCharges   Float?                            // Monthly charges amount
+  totalCharges     Float?                            // Total charges to date
+
+  createdAt        DateTime @default(now())          // Data entry creation timestamp
+
+  // Relationships and foreign keys:
+  // Customer data belongs to a specific user
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Each customer data entry can have multiple prediction sessions
+  predictionSessions PredictionSession[]
+}
+
+// PredictionSession Table/Relation Creation
+// Tracks churn prediction results and session history
+model PredictionSession {
+  // Table attributes and basic constraints:
+  id                String   @id @default(uuid())    // PK + unique session id
+  userId            String                           // FK to User table
+  customerDataId    String                           // FK to CustomerData table
+
+  // Prediction Results - ML model output
+  prediction        PredictionType                   // Churn prediction result (enum defined below)
+  confidence        Float                            // Confidence score (0-100)
+  keyFactors        String[]                         // Array of key factors influencing prediction
+
+  // Model Information - tracking model performance
+  modelVersion      String?                          // Version of ML model used
+  apiResponseTime   Int?                             // API response time in milliseconds
+
+  // Session Metadata
+  createdAt         DateTime @default(now())         // Session creation timestamp
+
+  // Relationships and foreign keys:
+  // Session belongs to a specific user
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Session is based on specific customer data
+  customerData      CustomerData @relation(fields: [customerDataId], references: [id], onDelete: Cascade)
+}
+
+// Enumeration for prediction results
+// Defines the possible churn prediction outcomes
+enum PredictionType {
+  CHURN     // Customer likely to churn
+  NO_CHURN  // Customer unlikely to churn
+}
