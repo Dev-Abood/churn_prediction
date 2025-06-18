@@ -1,61 +1,102 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ArrowLeft, Save, User, Mail } from "lucide-react";
-import Link from "next/link";
-import { toast } from "sonner";
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ArrowLeft, Save, User, Mail, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { toast } from "sonner"
+import ConfirmationModal from "@/components/confirmation-modal"
+import { getUserProfile, updateUserProfile } from "./actions"
+
+interface UserProfile {
+  firstName: string | null
+  lastName: string | null
+  email: string
+}
 
 export default function SettingsPage() {
-  const { user, isLoaded } = useUser();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
 
   useEffect(() => {
-    if (isLoaded && user) {
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
+    fetchUserProfile()
+  }, [])
+
+  const fetchUserProfile = async () => {
+    try {
+      setIsLoading(true)
+      const profile = await getUserProfile()
+      setUserProfile(profile)
+      setFirstName(profile.firstName || "")
+      setLastName(profile.lastName || "")
+    } catch (error) {
+      console.error("Error fetching user profile:", error)
+      toast.error("Failed to load profile")
+    } finally {
+      setIsLoading(false)
     }
-  }, [isLoaded, user]);
+  }
+
+  const handleSaveClick = () => {
+    setSaveModalOpen(true)
+  }
 
   const handleSave = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
+    setIsSaving(true)
     try {
-      await user.update({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-      });
-      toast.success("Profile updated successfully!");
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      toast.error("Failed to update profile. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      const formData = new FormData()
+      formData.append("firstName", firstName)
+      formData.append("lastName", lastName)
 
-  if (!isLoaded) {
+      const result = await updateUserProfile(formData)
+
+      if (result.success) {
+        setUserProfile(result.user!)
+        toast.success("Profile updated successfully!", {
+          description: "Your profile information has been saved.",
+        })
+      } else {
+        toast.error("Failed to update profile", {
+          description: result.error,
+        })
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error)
+      toast.error("Failed to update profile", {
+        description: "Please try again later.",
+      })
+    } finally {
+      setIsSaving(false)
+      setSaveModalOpen(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (!userProfile) {
     return (
       <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+        <div className="text-center">
+          <p className="text-gray-500">Failed to load profile data</p>
+          <Button onClick={fetchUserProfile} className="mt-4">
+            Try Again
+          </Button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -70,9 +111,7 @@ export default function SettingsPage() {
         </Link>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600">
-            Manage your account preferences and profile information
-          </p>
+          <p className="text-gray-600">Manage your account preferences and profile information</p>
         </div>
       </div>
 
@@ -84,9 +123,7 @@ export default function SettingsPage() {
               <User className="h-5 w-5" />
               <span>Profile Information</span>
             </CardTitle>
-            <CardDescription>
-              Update your personal information and display name
-            </CardDescription>
+            <CardDescription>Update your personal information and display name</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -114,22 +151,15 @@ export default function SettingsPage() {
               <Label htmlFor="email">Email Address</Label>
               <div className="flex items-center space-x-2">
                 <Mail className="h-4 w-4 text-gray-400" />
-                <Input
-                  id="email"
-                  value={user?.emailAddresses[0]?.emailAddress || ""}
-                  disabled
-                  className="bg-gray-50"
-                />
+                <Input id="email" value={userProfile.email} disabled className="bg-gray-50" />
               </div>
-              <p className="text-xs text-gray-500">
-                Email address cannot be changed from this page
-              </p>
+              <p className="text-xs text-gray-500">Email address cannot be changed from this page</p>
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={isLoading}>
+              <Button onClick={handleSaveClick} disabled={isSaving}>
                 <Save className="h-4 w-4 mr-2" />
-                {isLoading ? "Saving..." : "Save Changes"}
+                {isSaving ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </CardContent>
@@ -139,44 +169,43 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Account Information</CardTitle>
-            <CardDescription>
-              View your account details and subscription status
-            </CardDescription>
+            <CardDescription>View your account details and subscription status</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium text-gray-500">
-                  Account ID
-                </Label>
-                <p className="text-sm text-gray-900 font-mono">{user?.id}</p>
-              </div>
-              <div>
-                <Label className="text-sm font-medium text-gray-500">
-                  Member Since
-                </Label>
+                <Label className="text-sm font-medium text-gray-500">Full Name</Label>
                 <p className="text-sm text-gray-900">
-                  {user?.createdAt
-                    ? new Date(user.createdAt).toLocaleDateString()
-                    : "N/A"}
+                  {userProfile.firstName} {userProfile.lastName}
                 </p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-500">
-                  Plan
-                </Label>
+                <Label className="text-sm font-medium text-gray-500">Email</Label>
+                <p className="text-sm text-gray-900">{userProfile.email}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-500">Plan</Label>
                 <p className="text-sm text-gray-900">Pro Plan</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-500">
-                  Status
-                </Label>
+                <Label className="text-sm font-medium text-gray-500">Status</Label>
                 <p className="text-sm text-green-600 font-medium">Active</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Save Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={saveModalOpen}
+        onClose={() => setSaveModalOpen(false)}
+        onConfirm={handleSave}
+        title="Save Profile Changes"
+        description="Are you sure you want to update your profile information?"
+        confirmText="Save Changes"
+        confirmVariant="default"
+      />
     </div>
-  );
+  )
 }

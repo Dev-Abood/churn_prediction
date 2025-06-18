@@ -16,15 +16,7 @@ export async function GET() {
         userId: userId,
       },
       include: {
-        customerData: {
-          select: {
-            gender: true,
-            tenure: true,
-            contract: true,
-            monthlyCharges: true,
-            totalCharges: true,
-          },
-        },
+        customerData: true,
       },
       orderBy: {
         createdAt: "desc",

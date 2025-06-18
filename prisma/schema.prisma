@@ -32,6 +32,7 @@ model CustomerData {
   // Table attributes and basic constraints:
   id               String   @id @default(uuid())     // PK + unique customer data id
   userId           String                            // FK to User table
+  customerName     String                            // Customer name for identification
 
   // Demographics - customer personal information
   gender           String?                           // Customer gender (Male/Female)

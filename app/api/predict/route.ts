@@ -17,6 +17,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No customer data provided" }, { status: 400 })
     }
 
+    // Validate required fields
+    if (!customerData.customerName?.trim()) {
+      return NextResponse.json({ error: "Customer name is required" }, { status: 400 })
+    }
+
     // Call Flask API for prediction
     const flaskResponse = await fetch("http://localhost:5000/predict", {
       method: "POST",
@@ -37,6 +42,7 @@ export async function POST(request: NextRequest) {
     const savedCustomerData = await db.customerData.create({
       data: {
         userId: userId,
+        customerName: customerData.customerName.trim(),
         gender: customerData.gender,
         seniorCitizen: customerData.seniorCitizen,
         partner: customerData.partner,
