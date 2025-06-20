@@ -1,5 +1,7 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+# flask imports, request to receive form data, jsonify to return results in json form
+from flask import Flask, request, jsonify 
+from flask_cors import CORS # CORS for enabling Next.js application communication
+# python libraries needed
 import pandas as pd
 import numpy as np
 import pickle
@@ -7,48 +9,76 @@ import os
 import logging
 from datetime import datetime
 
-# Configure logging
+# configure logging system to send information and display errors
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)  # Enable CORS for Next.js application
 
 class ChurnPredictor:
-    def __init__(self, model_path='model.pkl'):
-        self.model = None
-        self.model_path = model_path
-        self.feature_columns = [
+    def __init__(self, model_path='model.pkl', scaler_path='scaler.pkl', encoder_path='encoders.pkl'):
+        # Initialize predictor variables
+        self.model = None 
+        self.scaler = None
+        self.encoder = None
+        self.model_path = model_path # defining the paths
+        self.scaler_path = scaler_path
+        self.encoder_path = encoder_path
+
+        self.feature_columns = [ # listing all features 
             'gender', 'SeniorCitizen', 'Partner', 'Dependents', 'tenure',
             'PhoneService', 'MultipleLines', 'InternetService', 'OnlineSecurity',
             'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV',
             'StreamingMovies', 'Contract', 'PaperlessBilling', 'PaymentMethod',
             'MonthlyCharges', 'TotalCharges'
         ]
-        self.load_model()
+        
+        self.load_model() # function to the load the model pkl file
+        self.load_scaler() # function to load the StandardScaler() pkl file
+
+    def load_scaler(self):
+        # error checking for scaler path
+        try:
+            if os.path.exists(self.scaler_path):
+                with open(self.scaler_path, 'rb') as file:
+                    self.scaler = pickle.load(file)
+                logger.info(f"Scaler loaded successfully from {self.scaler_path}")
+                return True
+            else:
+                logger.warning(f"Scaler file not found at {self.scaler_path}, will skip scaling")
+                self.scaler = None
+                return False
+        except Exception as e:
+            logger.error(f"Error loading scaler: {str(e)}")
+            self.scaler = None
+            return False
 
     def load_model(self):
         """Load the pre-trained XGBoost model from pickle file"""
         try:
+            # error checking the pickle file path, name is "model.pkl"
             if os.path.exists(self.model_path):
                 with open(self.model_path, 'rb') as file:
-                    self.model = pickle.load(file)
-                logger.info(f"Model loaded successfully from {self.model_path}")
+                    self.model = pickle.load(file) # load the model
+                # log success message
+                logger.info(f"model is loaded succesfully from path: {self.model_path}")
                 return True
             else:
-                logger.error(f"Model file {self.model_path} not found!")
+                # in case of error (model path does not exist):
+                logger.error(f"model file path for {self.model_path} is not found, please make sure it exists")
                 return False
         except Exception as e:
-            logger.error(f"Error loading model: {str(e)}")
+            # in case of server / client computer error
+            logger.error(f"Error loading model: {str(e)}") # log the error
             return False
 
     def preprocess_input(self, customer_data):
-        """Preprocess customer data for prediction"""
+        """Function for preprocessing the data"""
         try:
-            df = pd.DataFrame([customer_data])
-
-            # Map frontend field names to model expected names
-            field_mapping = {
+            churn_df = pd.DataFrame([customer_data])
+            mapping = { # map frontend field names to model expected names
+                # reference to the dataset
                 'gender': 'gender',
                 'seniorCitizen': 'SeniorCitizen',
                 'partner': 'Partner',
@@ -70,16 +100,24 @@ class ChurnPredictor:
                 'totalCharges': 'TotalCharges'
             }
 
-            # Rename columns to match model expectations
-            processed_data = {}
-            for frontend_key, model_key in field_mapping.items():
+            
+            processed_data = {} # Rename columns to match model expectations
+            for frontend_key, model_key in mapping.items():
                 if frontend_key in customer_data:
                     processed_data[model_key] = customer_data[frontend_key]
 
-            df = pd.DataFrame([processed_data])
+            churn_df = pd.DataFrame([processed_data]) # place mapped feature columns in a dataframe object
 
-            # Handle categorical variables - convert to numeric as expected by model
+            # Ensure numerical columns are properly typed
+            numerical_columns = ['tenure', 'MonthlyCharges', 'TotalCharges']
+            for col in numerical_columns:
+                if col in churn_df.columns:
+                    churn_df[col] = pd.to_numeric(churn_df[col], errors='coerce').fillna(0)
+                    
+            
+            # convert categorical columns to numeric as expected by model
             categorical_mappings = {
+                #! manually editing them is better practice
                 'gender': {'Male': 1, 'Female': 0},
                 'SeniorCitizen': {'Yes': 1, 'No': 0},
                 'Partner': {'Yes': 1, 'No': 0},
@@ -96,42 +134,72 @@ class ChurnPredictor:
                 'Contract': {'Month-to-month': 0, 'One year': 1, 'Two year': 2},
                 'PaperlessBilling': {'Yes': 1, 'No': 0},
                 'PaymentMethod': {
-                    'Electronic check': 0,
-                    'Mailed check': 1,
-                    'Bank transfer (automatic)': 2,
+                    'Electronic check': 0, 
+                    'Mailed check': 1, 
+                    'Bank transfer (automatic)': 2, 
                     'Credit card (automatic)': 3
                 }
             }
-
+            
             # Apply categorical mappings
             for col, mapping in categorical_mappings.items():
-                if col in df.columns:
-                    df[col] = df[col].map(mapping).fillna(0)
-
-            # Ensure numerical columns are properly typed
-            numerical_columns = ['tenure', 'MonthlyCharges', 'TotalCharges']
-            for col in numerical_columns:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
+                if col in churn_df.columns:
+                    churn_df[col] = churn_df[col].map(mapping).fillna(0)
+            
             # Ensure all required columns are present in correct order
             for col in self.feature_columns:
-                if col not in df.columns:
-                    df[col] = 0
+                if col not in churn_df.columns:
+                    churn_df[col] = 0
 
             # Select and order columns as expected by model
-            df = df[self.feature_columns]
+            churn_df = churn_df[self.feature_columns]
+            
+            # apply scaling using the pre-trained scaler 
+            if self.scaler is not None:
+                try:
+                    # check if scaler was trained on all features or just numerical ones
+                    if hasattr(self.scaler, 'feature_names_in_') and len(self.scaler.feature_names_in_) == len(self.feature_columns):
+                        # Scaler was trained on all features the same
+                        churn_df_scaled = pd.DataFrame(
+                            self.scaler.transform(churn_df),
+                            columns=churn_df.columns
+                        )
+                        churn_df = churn_df_scaled
+                        logger.info("Applied scaling to all features")
+                    else:
+                        # Scaler was trained on numerical features only
+                        churn_df_copy = churn_df.copy()
+                        churn_df_copy[numerical_columns] = self.scaler.transform(churn_df_copy[numerical_columns])
+                        churn_df = churn_df_copy
+                        logger.info("Applied scaling to numerical features only")
+                except Exception as e:
+                    logger.warning(f"Could not apply pre-trained scaler: {str(e)}. Skipping scaling.")
+            else:
+                logger.info("No pre-trained scaler available, skipping scaling")
 
-            return df
+            return churn_df
 
         except Exception as e:
             logger.error(f"Error preprocessing data: {str(e)}")
             raise ValueError(f"Data preprocessing failed: {str(e)}")
-
-    def predict(self, customer_data):
+    
+    def sendFI(self):
+        """Function to send feature importance results"""
+        
+        importance_churn_df = pd.DataFrame({
+                "Features": self.feature_columns,
+                "Importance": self.model.feature_importances_ 
+            }).sort_values(
+                by="Importance",
+                ascending=False # Sort descendingly by importance so we get the most important features as the top most
+            )
+        return importance_churn_df
+    
+    def predict(self, customer_data): # Function to create churn prediction
         """Make a churn prediction for a single customer"""
-        if self.model is None:
-            raise ValueError("Model is not loaded. Please check if model.pkl exists.")
+        
+        if self.model is None: # error check model loading
+            raise ValueError("Model is not loaded, maybe model.pkl does not exist in your dir")
 
         try:
             # Preprocess the input data
@@ -142,52 +210,45 @@ class ChurnPredictor:
             prediction_proba = self.model.predict_proba(processed_data)[0]
 
             # Get confidence score
-            confidence = float(max(prediction_proba) * 100)
-            churn_probability = float(prediction_proba[1] * 100) if len(prediction_proba) > 1 else 0
-
-            # Determine key factors (simplified - you can enhance this based on your model)
-            key_factors = []
-            if customer_data.get('contract') == 'Month-to-month':
-                key_factors.append('Contract type')
-            if float(customer_data.get('monthlyCharges', 0)) > 70:
-                key_factors.append('Monthly charges')
-            if int(customer_data.get('tenure', 0)) < 12:
-                key_factors.append('Tenure')
-            if customer_data.get('internetService') == 'Fiber optic':
-                key_factors.append('Internet service type')
-            if customer_data.get('paymentMethod') == 'Electronic check':
-                key_factors.append('Payment method')
-
-            # Ensure we have at least some factors
-            if not key_factors:
-                key_factors = ['Contract type', 'Monthly charges', 'Tenure']
-
-            result = {
+            confidence = float( # Make sure confidence score is a float, and convert to fixed probability
+                max(prediction_proba) * 100
+            )
+            
+            churn_probability = float( # Serialize into churn or no churn
+                prediction_proba[1] * 100
+            ) if len(prediction_proba) > 1 else 0
+            
+            
+            # Get the top 5 most influential features to the model's prediction
+            importance = self.sendFI()
+            FS = importance["Features"].to_list()[:5] # Limiting to top 5 factors
+            
+            print("feature importance top 5: ", FS)
+            print("prediction: ", prediction)
+            print("prediction probability: ", prediction_proba)
+            print("confidence score: ", confidence)
+            print("churn_probability", churn_probability)
+            
+            result = { # result request to be sent back to frontend
                 'prediction': 'Churn' if prediction == 1 else 'No Churn',
                 'confidence': round(confidence, 2),
                 'churn_probability': round(churn_probability, 2),
-                'factors': key_factors[:4],  # Limit to top 4 factors
-                'model_version': '1.0'
+                'factors': FS,  
+                'model_version': '1.0',
             }
 
-            return result
+            return result # return back result json object
 
         except Exception as e:
             logger.error(f"Prediction error: {str(e)}")
             raise ValueError(f"Prediction failed: {str(e)}")
 
+
+
 # Initialize the predictor
 predictor = ChurnPredictor()
 
-@app.route('/', methods=['GET'])
-def home():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'ChurnPredict AI API is running',
-        'version': '1.0',
-        'model_loaded': predictor.model is not None
-    })
-
+# the predict function
 @app.route('/predict', methods=['POST'])
 def predict_churn():
     """Predict churn for a customer"""
@@ -195,23 +256,31 @@ def predict_churn():
         # Get customer data from request
         data = request.json
 
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
+        if not data: # check if data does not exist (null)
+            # jsonify a not found error
+            return jsonify({'error': 'no prediction data provided'}), 400
 
+        # split customer data
         customer_data = data.get('customerData', {})
 
         if not customer_data:
-            return jsonify({'error': 'No customer data provided'}), 400
+            # jsonify a not found error if customer data does not exist
+            return jsonify({'error': 'no customer data provided'}), 400
 
-        # Make prediction using the loaded XGBoost model
-        start_time = datetime.now()
-        result = predictor.predict(customer_data)
-        end_time = datetime.now()
+        # generate prediction using the loaded XGBoost model
+        start_time = datetime.now() # start time
+        result = predictor.predict(customer_data) # make prediction
+        end_time = datetime.now() # end time upon finishing the prediction
 
-        # Calculate response time
-        response_time = int((end_time - start_time).total_seconds() * 1000)
+        # response time calculation (for testing purposes)
+        response_time = int( # receive time - send start time
+            (end_time - start_time).total_seconds() * 1000
+        )
+        
+        # save in results
         result['apiResponseTime'] = response_time
 
+        # log prediction info
         logger.info(f"Prediction made: {result['prediction']} with {result['confidence']}% confidence")
 
         return jsonify(result)
@@ -222,6 +291,16 @@ def predict_churn():
     except Exception as e:
         logger.error(f"Prediction error: {str(e)}")
         return jsonify({'error': 'Internal server error occurred'}), 500
+
+# health check endpoints
+@app.route('/', methods=['GET'])
+def home():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'ChurnPredict AI API is running',
+        'version': '1.0',
+        'model_loaded': predictor.model is not None
+    })
 
 @app.route('/model/status', methods=['GET'])
 def model_status():
@@ -238,16 +317,18 @@ def health_check():
     """Detailed health check"""
     return jsonify({
         'status': 'healthy',
+        # time in ISO formatting
         'timestamp': datetime.now().isoformat(),
         'model_status': 'loaded' if predictor.model is not None else 'not_loaded',
         'version': '1.0'
     })
 
 if __name__ == '__main__':
-    if predictor.model is None:
-        logger.error("Failed to load model. Please ensure model.pkl exists in the current directory.")
+    if predictor.model is None: # error check model loading
+        logger.error("loading model failed, please ensure model.pkl exists in the current dir.")
     else:
-        logger.info("ChurnPredict AI API is ready!")
+        logger.info("ChurnPredict AI API is ready")
 
     # Run the Flask app
     app.run(debug=True, host='0.0.0.0', port=5000)
+#* Port 5000 for API
