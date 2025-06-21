@@ -13,16 +13,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Brain, Loader2 } from "lucide-react"
 import { createUser } from "@/app/onboarding/actions"
 
-export default function OnboardingPage() {
-  const router = useRouter()
+export default function OnboardingPage(){
+  // since we're using server actions we can refresh the router easily
+  const router = useRouter() 
+  // states for tracking information
   const { user, isLoaded } = useUser()
   const [firstName, setFirstName] = useState(user?.firstName || "")
   const [lastName, setLastName] = useState(user?.lastName || "")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (!isLoaded) {
-    return (
+  if(!isLoaded){
+    return(
+      // display loader component if loading state is true
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
@@ -30,20 +33,22 @@ export default function OnboardingPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // handle form submit for the onboarding page
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
 
-    try {
-      if (!firstName.trim() || !lastName.trim()) {
+    try{
+      if(!firstName.trim() || !lastName.trim()){
+        // validate name fields are inputted
         throw new Error("Please provide both first name and last name")
       }
 
-      if (!user) {
+      if(!user){
         throw new Error("User not authenticated")
       }
 
-      // Call the server action to create the user in the database
+      // call the server action to create the user in the database
       await createUser({
         id: user.id,
         email: user.emailAddresses[0]?.emailAddress || "",
@@ -54,7 +59,7 @@ export default function OnboardingPage() {
       // Redirect to dashboard after successful onboarding
       router.push("/dashboard")
       router.refresh()
-    } catch (err) {
+    } catch(err){
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
     } finally {
       setIsSubmitting(false)
@@ -62,6 +67,7 @@ export default function OnboardingPage() {
   }
 
   return (
+    // JSX return code
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-8">
@@ -92,6 +98,7 @@ export default function OnboardingPage() {
                 <Label htmlFor="firstName" className="text-gray-200">
                   First Name
                 </Label>
+                {/* input label to edit first name */}
                 <Input
                   id="firstName"
                   placeholder="Enter your first name"
@@ -106,6 +113,7 @@ export default function OnboardingPage() {
                 <Label htmlFor="lastName" className="text-gray-200">
                   Last Name
                 </Label>
+                {/* input panel for last name */}
                 <Input
                   id="lastName"
                   placeholder="Enter your last name"
@@ -121,6 +129,7 @@ export default function OnboardingPage() {
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                 disabled={isSubmitting}
               >
+                {/* tracking submitting state to display a loader */}
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

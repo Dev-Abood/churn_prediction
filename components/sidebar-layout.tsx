@@ -17,6 +17,7 @@ interface SidebarLayoutProps {
   children: React.ReactNode
 }
 
+// Define sidebar navigation components
 const navigation = [
   {
     name: "Dashboard",

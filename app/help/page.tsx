@@ -7,6 +7,8 @@ import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { useState } from "react"
 
+// a fixed not functional page, for looks.
+
 const helpCategories = [
   {
     title: "Getting Started",

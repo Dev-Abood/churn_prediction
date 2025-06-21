@@ -21,6 +21,8 @@ interface ConfirmationModalProps {
   confirmVariant?: "default" | "destructive"
 }
 
+// Confirmation modal to be displayed to user
+
 export default function ConfirmationModal({
   isOpen,
   onClose,

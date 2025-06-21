@@ -1,6 +1,8 @@
 import type React from "react"
 import { checkOnboardingStatus } from "@/app/onboarding/actions"
 
+// layout wrapper
+
 export default async function PredictLayout({
   children,
 }: {

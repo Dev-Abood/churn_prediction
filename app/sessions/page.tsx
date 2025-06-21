@@ -35,9 +35,11 @@ import SessionDetailModal from "@/components/session-detail-modal";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-interface PredictionSession {
+// interface for the data for the according prediction session
+interface PredictionSession{
   id: string;
   createdAt: string;
+  // prediction type matching the schema enumeration type
   prediction: "CHURN" | "NO_CHURN";
   confidence: number;
   keyFactors: string[];
@@ -66,30 +68,40 @@ interface PredictionSession {
   };
 }
 
-interface SessionStats {
+// interafce for tracking the stats made and returned by the prediction
+interface SessionStats{
   total: number;
   churn: number;
   noChurn: number;
   avgConfidence: number;
 }
 
-export default function SessionsPage() {
-  const { user } = useUser();
-  const router = useRouter()
+export default function SessionsPage(){
+  const { user } = useUser(); // for getting clerk user authentication
+
+  // state to load and display all the prediction sessions to the user
   const [sessions, setSessions] = useState<PredictionSession[]>([]);
+  // state to display filtered session based on user inputted filters
   const [filteredSessions, setFilteredSessions] = useState<PredictionSession[]>(
     []
   );
+  // state for searching by name
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all");
+  // state to track the filters, e.g., churn or no churn sessions only display
+  const [filterType, setFilterType] = useState("all"); // set default to display all sessions
+  // state to track sorting type
   const [sortBy, setSortBy] = useState("newest");
+  // state to track loading status
   const [isLoading, setIsLoading] = useState(true);
+  // state for session stats
   const [stats, setStats] = useState<SessionStats>({
     total: 0,
     churn: 0,
     noChurn: 0,
     avgConfidence: 0,
   });
+
+  // these states is according to the components open and tracking their status
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [clearAllModalOpen, setClearAllModalOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
@@ -97,30 +109,34 @@ export default function SessionsPage() {
     useState<PredictionSession | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) {
+  useEffect(() => { // with each change to the user's data, fetch the sessions accordingly
+    if(user){
       fetchSessions();
     }
   }, [user]);
 
-  useEffect(() => {
+  useEffect(() => { // with every change to the filtering or sessions, do filtering actions
     filterAndSortSessions();
   }, [sessions, searchTerm, filterType, sortBy]);
 
   const fetchSessions = async () => {
-    try {
+    try{
+      // set loading state while fetching
       setIsLoading(true);
+      // fetch the response from the backend URL
       const response = await fetch("/api/sessions");
 
-      if (!response.ok) {
+      if(!response.ok){
+        // error check the fetching request
         throw new Error("Failed to fetch sessions");
       }
 
       const data = await response.json();
+      // set the sessions state to the data retreived 
       setSessions(data.sessions || []);
       console.log(data);
 
-      // Calculate stats
+      // Calculate statistics
       const total = data.sessions?.length || 0;
       const churn =
         data.sessions?.filter(
@@ -136,17 +152,22 @@ export default function SessionsPage() {
               ) / total
             )
           : 0;
-
+      
+      // set the stats state to the calculated statistics
       setStats({ total, churn, noChurn, avgConfidence });
-    } catch (error) {
+    } catch (error){
+      // error handling
       console.error("Error fetching sessions:", error);
       toast.error("Failed to load sessions");
-    } finally {
+    } finally{
+      // remove loading state upon finishing
       setIsLoading(false);
     }
   };
 
   const filterAndSortSessions = () => {
+    // Filter function
+
     let filtered = [...sessions];
 
     // Filter by prediction type
@@ -159,7 +180,7 @@ export default function SessionsPage() {
     }
 
     // Filter by search term
-    if (searchTerm) {
+    if (searchTerm){ 
       filtered = filtered.filter(
         (session) =>
           session.prediction.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -193,6 +214,7 @@ export default function SessionsPage() {
       }
     });
 
+    // after filtering list is defined, update the useState
     setFilteredSessions(filtered);
   };
 
@@ -202,25 +224,34 @@ export default function SessionsPage() {
   };
 
   const confirmDeleteSession = async () => {
-    if (!sessionToDelete) return;
+    // if no session to be deleted tracked in the state, leave immediately
+    if(!sessionToDelete) return; 
 
-    try {
+    
+    try{ // API endpoint function to delete the session
       const response = await fetch(`/api/sessions/${sessionToDelete}`, {
         method: "DELETE",
       });
 
-      if (!response.ok) {
+      if(!response.ok){
+        // error handling the response
         throw new Error("Failed to delete session");
       }
 
       // Remove from local state
-      setSessions(sessions.filter((session) => session.id !== sessionToDelete));
+      setSessions(sessions.filter(
+        (session) => session.id !== sessionToDelete
+      ));
+
+      // fetch the sessions again to update the deleted state on display
       fetchSessions()
+      // display success toast message
       toast.success("Session deleted successfully");
-    } catch (error) {
+    } catch(error){
+      // error handling and toast display
       console.error("Error deleting session:", error);
       toast.error("Failed to delete session");
-    } finally {
+    } finally{
       setDeleteModalOpen(false);
       setSessionToDelete(null);
     }
@@ -231,33 +262,41 @@ export default function SessionsPage() {
   };
 
   const confirmClearAllSessions = async () => {
-    try {
+    // function to clear all sessions from the buttom
+    try{
+      // upon receiving delete request, the backend will process deleting all the sessions
       const response = await fetch("/api/sessions", {
         method: "DELETE",
       });
 
-      if (!response.ok) {
+      if(!response.ok){
+        // error checking
         throw new Error("Failed to clear sessions");
       }
 
+      // set all sessions and stats to empty
       setSessions([]);
       setStats({ total: 0, churn: 0, noChurn: 0, avgConfidence: 0 });
+
+      // display success toast message
       toast.success("All sessions cleared successfully");
-    } catch (error) {
+    } catch(error){
       console.error("Error clearing sessions:", error);
       toast.error("Failed to clear sessions");
-    } finally {
+    } finally{
       setClearAllModalOpen(false);
     }
   };
 
   const handleViewSession = (session: PredictionSession) => {
+    // to view individual session and open the detail modal
     setSelectedSession(session);
     setDetailModalOpen(true);
   };
 
-  if (isLoading) {
-    return (
+  if(isLoading){
+    // in case of loading state, display a loader component
+    return(
       <SidebarLayout>
         <div className="p-8 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin" />
@@ -266,7 +305,8 @@ export default function SessionsPage() {
     );
   }
 
-  return (
+  return(
+    // TSX return error
     <SidebarLayout>
       <div className="p-8">
         <div className="mb-8">
@@ -346,6 +386,7 @@ export default function SessionsPage() {
                   <Input
                     placeholder="Search by customer name, prediction, or contract..."
                     value={searchTerm}
+                    // set state for search term
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
                   />

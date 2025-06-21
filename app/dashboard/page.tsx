@@ -10,12 +10,13 @@ import SidebarLayout from "@/components/sidebar-layout"
 import { getDashboardData } from "./actions"
 import { toast } from "sonner"
 
+// define interface types of data to be received and displayed in the dashboard
 interface DashboardData {
-  user: {
+  user: { // user data
     firstName: string
     lastName: string
   }
-  stats: {
+  stats: { // stats calculation in the server actions
     totalPredictions: number
     churnPredictions: number
     noChurnPredictions: number
@@ -23,6 +24,7 @@ interface DashboardData {
     thisMonth: number
   }
   recentSessions: Array<{
+    // session data to be displayed for 5 most recent
     id: string
     prediction: "CHURN" | "NO_CHURN"
     confidence: number
@@ -34,29 +36,37 @@ interface DashboardData {
   }>
 }
 
-export default function DashboardPage() {
+export default function DashboardPage(){
+  // state to store the dashboard data on display
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true) // state to track loading
 
   useEffect(() => {
+    // on every re-render, fetch the dashboard data again to cover for updates or refreshes. 
     fetchDashboardData()
   }, [])
 
+
+  // Anonymous function to fetch the dashboard data and set the loading animation
   const fetchDashboardData = async () => {
-    try {
+    try{
       setIsLoading(true)
+      // get the data from the servers actions
       const data = await getDashboardData()
-      setDashboardData(data)
-    } catch (error) {
+      setDashboardData(data) // update the state
+    } catch(error){
+      // in case of error
       console.error("Error fetching dashboard data:", error)
       toast.error("Failed to load dashboard data")
-    } finally {
+    } finally{
+      // when operation is done and leaving the block disable loading state
       setIsLoading(false)
     }
   }
 
-  if (isLoading) {
-    return (
+  if(isLoading){
+    return(
+      // return a loader component in case of loading state
       <SidebarLayout>
         <div className="p-8 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin" />
@@ -65,12 +75,14 @@ export default function DashboardPage() {
     )
   }
 
-  if (!dashboardData) {
-    return (
+  if(!dashboardData){
+    return(
+      // return a failing to load dashboard data button in case of a failure
       <SidebarLayout>
         <div className="p-8">
           <div className="text-center">
             <p className="text-gray-500">Failed to load dashboard data</p>
+            {/* display another button for retry */}
             <Button onClick={fetchDashboardData} className="mt-4">
               Try Again
             </Button>
@@ -81,8 +93,10 @@ export default function DashboardPage() {
   }
 
   const { user, stats, recentSessions } = dashboardData
+  // decompose data to be displayed from the big dashboard data object
 
   return (
+    // TSX return code
     <SidebarLayout>
       <div className="p-8">
         {/* Welcome Section */}
@@ -192,6 +206,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
+                {/* map sessions into individual divs */}
                 {recentSessions.map((session) => (
                   <div key={session.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-4">
@@ -227,6 +242,7 @@ export default function DashboardPage() {
                 ))}
                 {recentSessions.length >= 5 && (
                   <div className="text-center pt-4">
+                    {/* button redirection to the sessions page */}
                     <Link href="/sessions">
                       <Button variant="outline">View All Sessions</Button>
                     </Link>

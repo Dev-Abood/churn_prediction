@@ -4,16 +4,19 @@ import { db } from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
+    // authenticate user
     const { userId } = await auth()
 
     if (!userId) {
+      // send error if user is not logged in
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const customerData = body
+    const customerData = body // get the request data
 
     if (!customerData) {
+      // check if null
       return NextResponse.json({ error: "No customer data provided" }, { status: 400 })
     }
 
@@ -22,23 +25,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Customer name is required" }, { status: 400 })
     }
 
-    // Call Flask API for prediction
+    // call Flask API endpoint for prediction
+    //TODO: process.env.FLASK_BASE_URL
     const flaskResponse = await fetch("http://localhost:5000/predict", {
-      method: "POST",
+      method: "POST", // post request
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ customerData }),
+      body: JSON.stringify({ customerData }), // send in the customerData back to the app.py
     })
 
     if (!flaskResponse.ok) {
+      // check if flask response was faulty
       const errorData = await flaskResponse.json()
       throw new Error(errorData.error || "Flask API error")
     }
 
-    const predictionResult = await flaskResponse.json()
+    const predictionResult = await flaskResponse.json() // jsonify the response result
 
-    // Save customer data to database
+    // Save customer data to database using prisma ORM
     const savedCustomerData = await db.customerData.create({
       data: {
         userId: userId,
@@ -65,11 +70,12 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Save prediction session to database
+    // save prediction session to database
     const predictionSession = await db.predictionSession.create({
       data: {
         userId: userId,
         customerDataId: savedCustomerData.id,
+        // manually set the prediction type to the enumeration type
         prediction: predictionResult.prediction === "Churn" ? "CHURN" : "NO_CHURN",
         confidence: predictionResult.confidence,
         keyFactors: predictionResult.factors || [],

@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Brain, BarChart3, Shield, Zap, ArrowRight } from "lucide-react"
 
-export default function HomePage() {
+export default function HomePage(){
+  // Home page display
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -18,6 +19,7 @@ export default function HomePage() {
               </div>
               <span className="text-xl font-semibold text-gray-900">ChurnPredict AI</span>
             </div>
+            {/* Clerk Auth buttons */}
             <div className="flex items-center space-x-4">
               <SignedOut>
                 <SignInButton />

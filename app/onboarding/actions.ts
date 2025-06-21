@@ -11,29 +11,39 @@ interface UserInput {
   lastName: string;
 }
 
-export async function createUser({ id, firstName, lastName }: UserInput) {
+export async function createUser({ firstName, lastName }: UserInput){ // decompose elements
   try {
+    // authenticate user log in
     const { userId } = await auth();
 
-    if (!userId) {
+    if(!userId){
       throw new Error("Not authenticated");
     }
-    if (!firstName || !lastName) {
+
+    if(!firstName || !lastName){
+      // force first name and last name inputs
       return { error: "First name and last name are required" };
     }
 
     // Get user's email from Clerk
     const user = await currentUser();
-    console.log(user);
 
-    if (!user) {
+    // for debugging only:
+    // console.log(user);
+
+    if(!user){
+      // in case user was not found
       throw new Error("User not found");
     }
 
-    // Create or update user in database using Clerk's user ID
+    // create or update user in database using Clerk's user ID
     await db.user.upsert({
-      where: { id: userId },
+      where: { 
+        // distinguish user uniquely using clerk auth id
+        id: userId 
+      },
       update: {
+        // update elements from the input fields
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: user.emailAddresses[0]?.emailAddress || "",
@@ -46,18 +56,21 @@ export async function createUser({ id, firstName, lastName }: UserInput) {
       },
     });
 
-    return { success: true };
-  } catch (error) {
+    return { success: true }; // return sucess state on success
+  } catch(error){
+    // error handling for user creation
     console.error("Error creating user:", error);
     return { error: "Failed to create user profile" };
   }
 }
 
-export async function checkOnboardingStatus() {
+export async function checkOnboardingStatus(){
+  // function to check if the user has completed onboarding
   try {
     const { userId } = await auth();
 
-    if (!userId) {
+    if(!userId){
+      // if clerk doesn't return a unique ID then surely our user is not authenticated
       return { isAuthenticated: false, isOnboarded: false };
     }
 
@@ -65,29 +78,35 @@ export async function checkOnboardingStatus() {
       where: { id: userId },
     });
 
-    return {
+    return{
       isAuthenticated: true,
+      // onboarding depends if we have the rest of the user data, especially first and last names.
       isOnboarded: !!user && !!user.firstName && !!user.lastName,
     };
-  } catch (error) {
+  } catch(error){
+    // error handling
     console.error("Error checking onboarding status:", error);
     return { isAuthenticated: false, isOnboarded: false };
   }
 }
 
-export async function getUserData() {
+export async function getUserData(){
+  // function to get the user data
   try {
     const { userId } = await auth();
 
-    if (!userId) {
+    if(!userId){
       return null;
     }
 
     const user = await db.user.findUnique({
-      where: { id: userId },
+      where: { 
+        id: userId 
+      },
+      // no select statement so we retreive back all the data
     });
 
-    return user;
+    return user; // return user data after query
   } catch (error) {
     console.error("Error getting user data:", error);
     return null;

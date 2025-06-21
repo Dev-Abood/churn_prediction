@@ -11,13 +11,15 @@ import { toast } from "sonner"
 import ConfirmationModal from "@/components/confirmation-modal"
 import { getUserProfile, updateUserProfile } from "./actions"
 
+// interface for the data displayed and manipulated in this page
 interface UserProfile {
   firstName: string | null
   lastName: string | null
   email: string
 }
 
-export default function SettingsPage() {
+// This page just fetches user data and handles the submit changes button to update the user first and last names.
+export default function SettingsPage(){
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")

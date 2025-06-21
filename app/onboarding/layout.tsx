@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 
+// layout wrapper for onboarding page
+
 export default async function OnboardingLayout({
   children,
 }: {
@@ -10,23 +12,27 @@ export default async function OnboardingLayout({
 }) {
   const { userId } = await auth()
 
+
+  //! important
   // If not authenticated, redirect to sign-in
-  if (!userId) {
+  if(!userId){
     redirect("/sign-in")
   }
 
   // Check if user has already completed onboarding
   try {
     const user = await db.user.findUnique({
-      where: { id: userId },
+      where: { 
+        id: userId 
+      },
     })
 
     // If user exists and has firstName and lastName, redirect to dashboard
-    if (user?.firstName && user?.lastName) {
+    if (user?.firstName && user?.lastName){
+      // this validates that the user is onboarded
       redirect("/dashboard")
     }
-  } catch (error) {
-    // If there's an error, allow access to onboarding page
+  } catch(error){
     console.error("Error checking onboarding status:", error)
   }
 

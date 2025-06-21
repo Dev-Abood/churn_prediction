@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { TrendingUp, TrendingDown, Calendar, Clock, User, CreditCard, Wifi, Phone } from "lucide-react"
 
+// Modal displaying session data
+
 interface PredictionSession {
   id: string
   createdAt: string
