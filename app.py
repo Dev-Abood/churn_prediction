@@ -17,14 +17,13 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js application
 
 class ChurnPredictor:
-    def __init__(self, model_path='model.pkl', scaler_path='scaler.pkl', encoder_path='encoders.pkl'):
+    def __init__(self, model_path='model.pkl', scaler_path='scaler.pkl'):
         # Initialize predictor variables
         self.model = None 
         self.scaler = None
         self.encoder = None
         self.model_path = model_path # defining the paths
         self.scaler_path = scaler_path
-        self.encoder_path = encoder_path
 
         self.feature_columns = [ # listing all features 
             'gender', 'SeniorCitizen', 'Partner', 'Dependents', 'tenure',
@@ -330,5 +329,5 @@ if __name__ == '__main__':
         logger.info("ChurnPredict AI API is ready")
 
     # Run the Flask app
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000)
 #* Port 5000 for API
