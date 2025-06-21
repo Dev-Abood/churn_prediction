@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // call Flask API endpoint for prediction
-    //TODO: process.env.FLASK_BASE_URL
-    const flaskResponse = await fetch("http://localhost:5000/predict", {
+    const flaskResponse = await fetch(`${process.env.FLASK_BASE_URL}/predict`, {
       method: "POST", // post request
       headers: {
         "Content-Type": "application/json",
